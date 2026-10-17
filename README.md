@@ -42,6 +42,11 @@ Tested against real Anubis (`git.ffmpeg.org`, v1.28.1), 8 threads, i7-1260P:
 | `hashx` d20 | seconds | **0.04–1 s** (nonce-dependent) |
 | `metarefresh` | time-gated | time-gated, same |
 
+**Compiler flags:** the native host is built with `-O3`. The measured gain over
+`-O2` is small (~3–6% on the `fast` SHA-256 loop, neutral on `hashx`/`argon2id`);
+the hot path is OpenSSL's SHA-NI assembly plus the 8-thread/midstate design, not
+the C optimizer. `-march=native`/LTO did not help consistently on Alder Lake.
+
 Solve time is dominated by the random winning nonce, so expect variance. The
 host logs every solve to `~/anubis-native.log`:
 

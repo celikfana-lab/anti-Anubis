@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Anubis Native Solver",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Solves Anubis proof-of-work challenges with flixbrute's native solver.",
   "browser_specific_settings": {
     "gecko": {

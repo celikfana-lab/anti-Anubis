@@ -6,7 +6,7 @@
 
 CC      ?= gcc
 SRC     := solver
-CFLAGS  ?= -O2 -g -Wall -Wextra -Wno-deprecated-declarations
+CFLAGS  ?= -O3 -g -Wall -Wextra -Wno-deprecated-declarations
 CFLAGS  += -std=gnu11 -I$(SRC) -pthread
 LDLIBS  := -lcrypto -lpthread -lm -ldl -lzstd -lz
 
