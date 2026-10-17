@@ -20,6 +20,9 @@ benchmark.
 - **Native C solver** via Firefox native messaging (`runtime.sendNativeMessage`).
 - **Blocks Anubis' JS/WASM solver before it loads** — `webRequest` cancels
   `main.mjs` and the worker scripts, so the page's 8 workers never start.
+- **Hijacks the challenge document** (`webRequest.filterResponseData`): the tab
+  receives a tiny HTML page containing only the challenge JSON, so Anubis' CSS,
+  `main.mjs`, worker/WASM and mascots are never loaded or rendered.
 - **Hashes the challenge JS once per host** (SHA-256) and caches the host→hash
   map in `browser.storage.local`, so later visits are blocked immediately.
 - **Black whale screen** with an animated progress bar and
@@ -77,6 +80,21 @@ at ~0.32 s median — the drop is the cookie/cache, not a faster hash.
 These are HTTP-level timings from the native client (no browser rendering);
 Firefox adds normal page-load time on top.
 
+### Document hijack (v1.0.3)
+
+Verified on live `git.ffmpeg.org`:
+
+- **0** requests for Anubis' xess CSS.
+- **0** requests for `static/js/main.mjs`.
+- Native `fast` d6 solve: **200.5 ms**.
+- Auth cookie set; final gitweb page reached.
+
+Locally, `fast` d4 module latency went from ~921 ms to **~875 ms** — the browser
+page/process floor dominates, so the hijack is not a dramatic latency win. Its
+value is that Anubis' CSS/JS/WASM/UI never load (less CPU/network, no
+`Calculating…`). One local sample fell back to the original document while the
+native host still solved; the fallback is intentional.
+
 ### Default policy tiers (local Anubis v1.28.1)
 
 | Tier | Challenge | Native C (no browser) | Standard Firefox | Firefox + module |
@@ -128,7 +146,11 @@ host logs every solve to `~/anubis-native.log`:
 
 ```
 background.js (webRequest)
-  ├─ spots Anubis (verification cookie / .within.website)
+  ├─ onHeadersReceived spots Anubis (verification cookie / .within.website)
+  ├─ onBeforeSendHeaders forces Accept-Encoding: identity for Anubis docs
+  ├─ onHeadersReceived buffers the challenge HTML, extracts
+  │    #anubis_version + #anubis_base_prefix + #anubis_challenge,
+  │    and writes a tiny HUD page instead  ← no Anubis CSS/JS/WASM
   ├─ cancels .../cmd/anubis/static/js/main.mjs + worker scripts
   │    ← the page's JS/WASM solver never starts
   ├─ fetches the challenge JS once and stores SHA-256(host)
@@ -146,7 +168,8 @@ content.js (document_start)
        ◄─ { passUrl, cssUrl, delayMs }
   └─ page-world location.replace(passUrl)       ← browser keeps its cookies
 
-fallback: native host fails → force-allow tab → reload → Anubis' page solver
+fallback: filter parse fails → original body; native fails → force-allow tab
+           → reload → Anubis' page solver
 ```
 
 The host is a normal native-messaging app: a 4-byte little-endian length
@@ -243,6 +266,10 @@ make -C native dynamic  # dynamic build for debugging
 - The challenge JS is downloaded **once by the extension** to compute a local
   SHA-256; the host→hash map lives in `browser.storage.local`. Nothing is sent
   anywhere.
+- The document hijack (`filterResponseData`) buffers the challenge HTML locally,
+  extracts the three JSON scripts, and writes a minimal page. It preserves
+  `Set-Cookie`; it only removes `Content-Length`, `Content-Encoding`, and CSP
+  from the substituted document.
 - The extension asks for `<all_urls>` so it can detect challenges on any site
   and fetch the `css-load` probe with the page's cookies. It does not contact
   any remote service.
