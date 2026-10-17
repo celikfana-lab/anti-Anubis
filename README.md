@@ -59,7 +59,7 @@ Three columns in both tables:
 |---|---:|---:|
 | Native C (no browser) | **1.00 s** | **0.30 s** |
 | Standard Firefox | 30.84 s | page JS/WASM |
-| Firefox + module | **7.41 s** (includes ~6 s web-ext startup) | **0.14 s** |
+| Firefox + module (v1.0.1 total) | **7.41 s** (includes ~6 s web-ext startup) | **0.14 s** |
 
 The module's end-to-end number is inflated by launching a fresh Firefox +
 `web-ext` for every test. In an already-open Firefox the extension's own cost is
@@ -89,45 +89,47 @@ Verified on live `git.ffmpeg.org`:
 - Native `fast` d6 solve: **200.5 ms**.
 - Auth cookie set; final gitweb page reached.
 
-Locally, `fast` d4 module latency went from ~921 ms to **~875 ms** — the browser
-page/process floor dominates, so the hijack is not a dramatic latency win. Its
+In the v1.0.3 every-tier run, local `fast` d4 was **1.09 s** (one sample; that
+run fell back to the original document) and an isolated hijack run measured
+**~875 ms**; v1.0.1 was ~921 ms. The browser page/process floor plus
+filter-fallback variance dominate, so this is not a uniform latency win. The
 value is that Anubis' CSS/JS/WASM/UI never load (less CPU/network, no
-`Calculating…`). One local sample fell back to the original document while the
-native host still solved; the fallback is intentional.
+`Calculating…`).
 
 ### Default policy tiers (local Anubis v1.28.1)
 
-| Tier | Challenge | Native C (no browser) | Standard Firefox | Firefox + module |
+| Tier | Challenge | Native C (no browser) | Standard Firefox | Firefox + module (v1.0.3) |
 |---|---|---:|---:|---:|
 | T0 minimal | ALLOW | no challenge | no challenge | no challenge |
-| T1 mild | `metarefresh` d1 | 1.11 s | 2.31 s | 2.19 s |
-| T2 moderate | `fast` d2 | **7.6 ms** | 814 ms | 857 ms |
-| T3 elevated | `fast` d4 | **8.0 ms** | 2.55 s | 921 ms |
-| T4 extreme | `fast` d6 | **76 ms** | 13.58 s | 2.05 s |
+| T1 mild | `metarefresh` d1 | 1.11 s | 2.31 s | 2.18 s |
+| T2 moderate | `fast` d2 | **7.6 ms** | 814 ms | 750 ms |
+| T3 elevated | `fast` d4 | **8.0 ms** | 2.55 s | 1.09 s |
+| T4 extreme | `fast` d6 | **76 ms** | 13.58 s | 1.10 s |
 
 ### Algorithm-equivalent tiers
 
-| Algorithm | Difficulty | Native C (no browser) | Standard Firefox | Firefox + module |
+| Algorithm | Difficulty | Native C (no browser) | Standard Firefox | Firefox + module (v1.0.3) |
 |---|---:|---:|---:|---:|
-| `fast` | 2 | 7.6 ms | 814 ms | 857 ms |
-| `fast` | 4 | 8.0 ms | 2.55 s | 921 ms |
-| `fast` | 6 | 76 ms | 13.58 s | 2.05 s |
-| `sha256` | 8 | 6.6 ms | 876 ms | 782 ms |
-| `sha256` | 16 | 8.8 ms | 834 ms | 822 ms |
-| `sha256` | 24 | 360 ms | 2.58 s | 3.41 s |
-| `argon2id` | 2 | 401 ms | 1.14 s | 2.00 s |
-| `argon2id` | 4 | 473 ms | 1.16 s | 1.49 s |
-| `argon2id` | 6 | 500 ms | 2.06 s | 1.30 s |
-| `hashx` | 7 | 11.7 ms | 860 ms | 835 ms |
-| `hashx` | 15 | 15.5 ms | 966 ms | 833 ms |
-| `hashx` | 20 | 445 ms | 1.30 s | 1.21 s |
+| `fast` | 2 | 7.6 ms | 814 ms | 750 ms |
+| `fast` | 4 | 8.0 ms | 2.55 s | 1.09 s |
+| `fast` | 6 | 76 ms | 13.58 s | 1.10 s |
+| `sha256` | 8 | 6.6 ms | 876 ms | 764 ms |
+| `sha256` | 16 | 8.8 ms | 834 ms | 782 ms |
+| `sha256` | 24 | 360 ms | 2.58 s | 1.47 s |
+| `argon2id` | 2 | 401 ms | 1.14 s | 1.18 s |
+| `argon2id` | 4 | 473 ms | 1.16 s | 1.46 s |
+| `argon2id` | 6 | 500 ms | 2.06 s | 3.40 s |
+| `hashx` | 7 | 11.7 ms | 860 ms | 996 ms |
+| `hashx` | 15 | 15.5 ms | 966 ms | 977 ms |
+| `hashx` | 20 | 445 ms | 1.30 s | 1.57 s |
 
 **How these were measured**
 
 - Local: Anubis v1.28.1 (same version as the `anubis/` checkout), local HTTP, i7-1260P (16 threads), 8 solver threads, 16 GB RAM.
-- Challenge latency = server `new challenge issued` → `challenge accepted`. Native cells are medians of 3 runs; module cells 1; standard Firefox cells 1. Browser cells include challenge page load and JS/WASM startup.
-- The module's low-tier times are dominated by the ~0.8 s challenge page/extension load. Its advantage grows with the challenge cost.
-- At `fast` d6, `argon2id` d6, and on the real-world site the native path wins clearly. For cheap `sha256`/`hashx` tiers the page's WASM solver is competitive, and a single module sample can be slower than Firefox (`sha256` 24, `argon2id` 2) due to page-load and CPU variance.
+- Challenge latency = server `new challenge issued` → `challenge accepted`. Native cells are medians of 3 runs; standard Firefox cells 1; the module column is **v1.0.3**, 1 fresh profile per tier.
+- The v1.0.3 document hijack triggered (0 xess CSS requests) in **8/13** tiers; the other 5 fell back to the original document while the native host still solved. That fallback and single-sample noise explain the mixed module numbers.
+- Module v1.0.3 vs v1.0.1: faster at `fast` d2 (750 vs 857 ms), `fast` d6 (1.10 vs 2.05 s), `sha256` d24 (1.47 vs 3.41 s), `argon2id` d2 (1.18 vs 2.00 s); slower at `fast` d4 (1.09 vs 0.92 s), `argon2id` d6 (3.40 vs 1.30 s; the host solve was a 2.4 s outlier), and `hashx` 7/15/20 (1.00/0.98/1.57 vs 0.84/0.83/1.21 s). This is not a uniform speedup.
+- The native path clearly wins at `fast` d6 and `sha256` d24. For `hashx` and `argon2id` 4/6 the browser's WASM is competitive and the page/extension overhead can make the module slower.
 - Variance is nonce- and CPU-load-dependent; browser cells are intentionally 1 run (high tiers take seconds to minutes).
 
 **Compiler flags:** the native host is built with `-O3`. The measured gain over
