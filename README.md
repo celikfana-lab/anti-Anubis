@@ -5,19 +5,26 @@
 `Anubis solver` · `Anubis bypass` · `Firefox extension` · `native messaging` · `proof of work` · `anti-bot` · `git.ffmpeg.org`
 
 Anubis normally makes your browser hash the challenge in JavaScript/WebAssembly.
-This add-on detects the challenge page, passes the challenge JSON to a small
-statically-linked C host, and navigates straight to the `pass-challenge` URL.
-On a `fast` difficulty-6 challenge it finishes in **~74–555 ms** under a 1080p60
-video load, where the page's own solver needs **~74 seconds** at ~225 kH/s.
+This add-on **blocks that solver**, shows a black whale loading screen, passes
+the challenge JSON to a small statically-linked C host, and navigates straight
+to the `pass-challenge` URL. On `git.ffmpeg.org` (`fast` difficulty 6) the
+native solve is **~0.30 s**; the page's own solver took **~31 s** in our
+benchmark.
+
+![The black "solving natively" screen](docs/overlay.png)
 
 ---
 
 ## Features
 
 - **Native C solver** via Firefox native messaging (`runtime.sendNativeMessage`).
-- **No page JS solver flash** — the challenge UI is masked with a
-  `Solving natively…` overlay and Anubis' `main.mjs` is told to stand down
-  (`window.__anubisBooted`).
+- **Blocks Anubis' JS/WASM solver before it loads** — `webRequest` cancels
+  `main.mjs` and the worker scripts, so the page's 8 workers never start.
+- **Hashes the challenge JS once per host** (SHA-256) and caches the host→hash
+  map in `browser.storage.local`, so later visits are blocked immediately.
+- **Black whale screen** with an animated progress bar and
+  “Please wait, solving natively so you save time!” — the page never shows
+  `Calculating…`.
 - **8-thread nonce search** with SHA-256 midstate precomputation.
 - Handles every Anubis challenge type in the open-source server:
   `fast` / `slow`, `sha256`, `argon2id`, `hashx`, plus `metarefresh` and the
@@ -105,18 +112,26 @@ host logs every solve to `~/anubis-native.log`:
 ## How it works
 
 ```
-Anubis challenge page
-  └─ content.js (document_start)
-       ├─ sets window.__anubisBooted = true   ← stops the page's 8 JS workers
-       ├─ masks the challenge UI with "Solving natively…"
-       ├─ reads #anubis_challenge + #anubis_base_prefix
-       └─ background.js ──sendNativeMessage──► anubis_native (static C host)
-                                                  ├─ 8-thread PoW
-                                                  ├─ midstate SHA-256
-                                                  ├─ css-load probe URL
-                                                  └─ metarefresh delay
+background.js (webRequest)
+  ├─ spots Anubis (verification cookie / .within.website)
+  ├─ cancels .../cmd/anubis/static/js/main.mjs + worker scripts
+  │    ← the page's JS/WASM solver never starts
+  ├─ fetches the challenge JS once and stores SHA-256(host)
+  └─ remembers the host in browser.storage.local
+
+content.js (document_start)
+  ├─ black overlay: whale + animated progress bar + "Please wait..."
+  ├─ sets window.__anubisBooted = true          ← second line of defence
+  ├─ reads #anubis_challenge + #anubis_base_prefix
+  └─ background.js ──sendNativeMessage──► anubis_native (static C host)
+                                             ├─ 8-thread PoW
+                                             ├─ midstate SHA-256
+                                             ├─ css-load probe URL
+                                             └─ metarefresh delay
        ◄─ { passUrl, cssUrl, delayMs }
-  └─ page-world location.replace(passUrl)        ← browser keeps its cookies
+  └─ page-world location.replace(passUrl)       ← browser keeps its cookies
+
+fallback: native host fails → force-allow tab → reload → Anubis' page solver
 ```
 
 The host is a normal native-messaging app: a 4-byte little-endian length
@@ -208,9 +223,16 @@ make -C native dynamic  # dynamic build for debugging
 
 - The native host is local; it reads framed JSON on stdin and writes JSON on
   stdout. Nothing is uploaded.
-- The extension asks for `<all_urls>` only so the background can read Anubis
-  challenge pages and fetch the `css-load` probe with the page's cookies. It
-  does not contact any remote service.
+- `webRequest` cancels only Anubis' `/.within.website/x/cmd/anubis/static/js/*`
+  paths. It does not block other JavaScript.
+- The challenge JS is downloaded **once by the extension** to compute a local
+  SHA-256; the host→hash map lives in `browser.storage.local`. Nothing is sent
+  anywhere.
+- The extension asks for `<all_urls>` so it can detect challenges on any site
+  and fetch the `css-load` probe with the page's cookies. It does not contact
+  any remote service.
+- Permissions: `nativeMessaging`, `storage`, `webRequest`, `webRequestBlocking`,
+  `<all_urls>`.
 - The host runs as your user and is launched by Firefox; no setuid, no daemon,
   no open port.
 - Respect the terms of service of sites you visit and use this on systems you

@@ -1,15 +1,21 @@
 {
   "manifest_version": 2,
   "name": "Anubis Native Solver",
-  "version": "1.0.1",
-  "description": "Solves Anubis proof-of-work challenges with flixbrute's native solver.",
+  "version": "1.0.2",
+  "description": "Solves Anubis challenges with a native C solver and blocks the page's JS/WASM solver.",
   "browser_specific_settings": {
     "gecko": {
       "id": "anubis-native@flixbrute.local",
       "strict_min_version": "109.0"
     }
   },
-  "permissions": ["nativeMessaging", "<all_urls>"],
+  "permissions": [
+    "nativeMessaging",
+    "storage",
+    "webRequest",
+    "webRequestBlocking",
+    "<all_urls>"
+  ],
   "background": {
     "scripts": ["background.js"],
     "persistent": false
@@ -21,5 +27,6 @@
       "run_at": "document_start",
       "all_frames": false
     }
-  ]
+  ],
+  "web_accessible_resources": ["asset/whale.webp"]
 }
