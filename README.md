@@ -62,6 +62,21 @@ The module's end-to-end number is inflated by launching a fresh Firefox +
 `web-ext` for every test. In an already-open Firefox the extension's own cost is
 the host solve (**~0.1–0.9 s**) plus the challenge page load.
 
+### 20 refreshes on `git.ffmpeg.org`
+
+| Mode | Challenged | Median total | Median solve |
+|---|---:|---:|---:|
+| Cold — fresh cookie jar each refresh | 20/20 | **1054.9 ms** | 320.2 ms |
+| Warm — same cookie jar, Anubis auth cookie | 1/20 | **298.8 ms** | 319.0 ms (first) |
+
+The first successful pass sets Anubis' auth cookie; the next 19 refreshes are
+served directly. That is a **~72% median drop** (1.05 s → 0.30 s). 19/20 cold
+refreshes passed; one was a transient outlier. The native solver itself stayed
+at ~0.32 s median — the drop is the cookie/cache, not a faster hash.
+
+These are HTTP-level timings from the native client (no browser rendering);
+Firefox adds normal page-load time on top.
+
 ### Default policy tiers (local Anubis v1.28.1)
 
 | Tier | Challenge | Native C (no browser) | Standard Firefox | Firefox + module |
