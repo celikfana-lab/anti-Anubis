@@ -1,0 +1,7 @@
+{
+  "name": "anubis_native",
+  "description": "flixbrute native Anubis proof-of-work solver",
+  "path": "@HOST@",
+  "type": "stdio",
+  "allowed_extensions": ["anubis-native@flixbrute.local"]
+}

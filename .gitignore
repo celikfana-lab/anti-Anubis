@@ -1,0 +1,19 @@
+# build products
+native/anubis_native
+native/anubis_native.dynamic
+*.o
+*.so
+*.xpi
+
+# runtime / test
+anubis-native.log
+*.log
+*.jar
+*.sqlite
+*.sqlite-*
+node_modules/
+
+# editor
+.vscode/
+.idea/
+*.swp

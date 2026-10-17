@@ -1,0 +1,26 @@
+anti-Anubis
+===========
+
+Copyright (c) 2026 celikfana-lab
+
+Third-party components
+----------------------
+
+native/solver/hashx.c, native/solver/hashx.h
+    C port of HashX (https://github.com/tevador/hashx)
+    Copyright (c) 2020 tevador <tevador@gmail.com>
+    Licensed under the GNU Lesser General Public License v3.0.
+    Full text: LICENSES/LGPL-3.0.txt
+
+    The port is derived from the `hashx` crate v0.8.0 by The Tor Project
+    (https://gitlab.torproject.org/tpo/core/rust-hashx) and keeps the
+    interpreted runtime only (no JIT).
+
+Anubis challenge formats and algorithms
+    https://github.com/TecharoHQ/anubis
+    Copyright (c) Techaro contributors
+    Licensed under the MIT license.
+
+native/solver/anubis.c, native/solver/util.c and the native host
+    Derived from the flixbrute project by celikfana-lab.
+    Licensed under the MIT license.

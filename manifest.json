@@ -1,0 +1,25 @@
+{
+  "manifest_version": 2,
+  "name": "Anubis Native Solver",
+  "version": "1.0.0",
+  "description": "Solves Anubis proof-of-work challenges with flixbrute's native solver.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "anubis-native@flixbrute.local",
+      "strict_min_version": "109.0"
+    }
+  },
+  "permissions": ["nativeMessaging", "<all_urls>"],
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ]
+}
