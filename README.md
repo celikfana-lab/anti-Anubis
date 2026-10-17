@@ -32,15 +32,63 @@ video load, where the page's own solver needs **~74 seconds** at ~225 kH/s.
 
 ## Benchmarks
 
-Tested against real Anubis (`git.ffmpeg.org`, v1.28.1), 8 threads, i7-1260P:
+Two sets of measurements:
 
-| Challenge | Firefox page solver | This extension |
-|---|---|---|
-| `fast` d6 | ~74 s (225 kH/s) | **74.3 / 265.2 / 555.6 ms** (three runs, 1080p60 video playing) |
-| `sha256` d24 | seconds | **~0.25 s** |
-| `argon2id` d6 | seconds | **~0.8 s** |
-| `hashx` d20 | seconds | **0.04–1 s** (nonce-dependent) |
-| `metarefresh` | time-gated | time-gated, same |
+1. **Real world** — live `https://git.ffmpeg.org/ffmpeg.git` (Anubis v1.28.1, `fast` difficulty 6).
+2. **Every Anubis tier** — a local Anubis v1.28.1 instance (same version as the `anubis/` checkout) using the default policy tiers and the algorithm-equivalent difficulties from the Anubis docs.
+
+Three columns in both tables:
+
+- **Native C (no browser)** — the C host/harness solves and passes directly; no Firefox.
+- **Standard Firefox** — Firefox 157 headless with no extension; Anubis' own JS/WASM solver runs.
+- **Firefox + module** — the same Firefox with this extension + native messaging.
+
+### Real world: `git.ffmpeg.org/ffmpeg.git` (`fast` d6)
+
+| Mode | End-to-end from process launch | Solver |
+|---|---:|---:|
+| Native C (no browser) | **1.00 s** | **0.30 s** |
+| Standard Firefox | 30.84 s | page JS/WASM |
+| Firefox + module | **7.41 s** (includes ~6 s web-ext startup) | **0.14 s** |
+
+The module's end-to-end number is inflated by launching a fresh Firefox +
+`web-ext` for every test. In an already-open Firefox the extension's own cost is
+the host solve (**~0.1–0.9 s**) plus the challenge page load.
+
+### Default policy tiers (local Anubis v1.28.1)
+
+| Tier | Challenge | Native C (no browser) | Standard Firefox | Firefox + module |
+|---|---|---:|---:|---:|
+| T0 minimal | ALLOW | no challenge | no challenge | no challenge |
+| T1 mild | `metarefresh` d1 | 1.11 s | 2.31 s | 2.19 s |
+| T2 moderate | `fast` d2 | **7.6 ms** | 814 ms | 857 ms |
+| T3 elevated | `fast` d4 | **8.0 ms** | 2.55 s | 921 ms |
+| T4 extreme | `fast` d6 | **76 ms** | 13.58 s | 2.05 s |
+
+### Algorithm-equivalent tiers
+
+| Algorithm | Difficulty | Native C (no browser) | Standard Firefox | Firefox + module |
+|---|---:|---:|---:|---:|
+| `fast` | 2 | 7.6 ms | 814 ms | 857 ms |
+| `fast` | 4 | 8.0 ms | 2.55 s | 921 ms |
+| `fast` | 6 | 76 ms | 13.58 s | 2.05 s |
+| `sha256` | 8 | 6.6 ms | 876 ms | 782 ms |
+| `sha256` | 16 | 8.8 ms | 834 ms | 822 ms |
+| `sha256` | 24 | 360 ms | 2.58 s | 3.41 s |
+| `argon2id` | 2 | 401 ms | 1.14 s | 2.00 s |
+| `argon2id` | 4 | 473 ms | 1.16 s | 1.49 s |
+| `argon2id` | 6 | 500 ms | 2.06 s | 1.30 s |
+| `hashx` | 7 | 11.7 ms | 860 ms | 835 ms |
+| `hashx` | 15 | 15.5 ms | 966 ms | 833 ms |
+| `hashx` | 20 | 445 ms | 1.30 s | 1.21 s |
+
+**How these were measured**
+
+- Local: Anubis v1.28.1 (same version as the `anubis/` checkout), local HTTP, i7-1260P (16 threads), 8 solver threads, 16 GB RAM.
+- Challenge latency = server `new challenge issued` → `challenge accepted`. Native cells are medians of 3 runs; module cells 1; standard Firefox cells 1. Browser cells include challenge page load and JS/WASM startup.
+- The module's low-tier times are dominated by the ~0.8 s challenge page/extension load. Its advantage grows with the challenge cost.
+- At `fast` d6, `argon2id` d6, and on the real-world site the native path wins clearly. For cheap `sha256`/`hashx` tiers the page's WASM solver is competitive, and a single module sample can be slower than Firefox (`sha256` 24, `argon2id` 2) due to page-load and CPU variance.
+- Variance is nonce- and CPU-load-dependent; browser cells are intentionally 1 run (high tiers take seconds to minutes).
 
 **Compiler flags:** the native host is built with `-O3`. The measured gain over
 `-O2` is small (~3–6% on the `fast` SHA-256 loop, neutral on `hashx`/`argon2id`);
